@@ -1,0 +1,294 @@
+---
+title: "Assignment 3 Answers, , CSDE 502 Winter 2022"
+author: "[Phil Hurvitz](http://gis.washington.edu/phurvitz)"
+date: "`r Sys.Date()`"
+output:
+  bookdown::html_document2:
+    toc: true
+    toc_float:
+      collapsed: false
+      smooth_scroll: false
+    toc_depth: 6
+    number_sections: true
+    code_folding: hide
+    self_contained: yes
+---
+
+<!-- wider output -->
+<style type="text/css">
+.main-container {
+  max-width: 100% !important;
+  margin: auto;
+}
+</style>
+
+```{r setup, echo=FALSE, message=FALSE}
+# load several packages
+pacman::p_load(kableExtra, magrittr, captioner, keyring, HMDHFDplus, tidycensus, ggplot2, mapview, tidyverse)
+
+table_nums <- captioner(prefix = "Table")
+figure_nums <- captioner(prefix = "Figure")
+```
+
+# Q1
+**Download data from the Human Mortality database or the Human Fertility database as well as the US Census International Data base for at least two countries and for at least two years. The years should be the same for each country. Create at least one graphic that combines variables from each data set. Explain any patterns that you see.**
+
+Here we obtain the US Census International Database fertility rates for Italy and Sweden in 2000 and 2001. The rates are by age group (15 to 19, 20 to 24, etc.) representing births per 1,000 population.
+
+```{r}
+library(idbr)
+library(HMDHFDplus)
+library(countrycode)
+
+# IDBR data
+idb_api_key(Sys.getenv("CENSUS_API_KEY"))
+
+# get age specific fertility rates
+swe_ita_fert_rate <- get_idb(
+    country = c("Italy", "Sweden"),
+    year = c(2000, 2021),
+    variables = c("ASFR15_19", "ASFR20_24", "ASFR25_29", "ASFR30_34", "ASFR35_39", "ASFR40_44", "ASFR45_49")
+)
+```
+
+We use the `rowwise()` function to obtain the mean value of these age-group fertility rates across rows. so there will be a single fertility rate per year $\times$ country.
+
+```{r}
+# average fertility rate across all ages
+swe_ita_fert_rate %<>%
+    rowwise() %>%
+    mutate(fertility_rate = mean(c(
+        asfr15_19,
+        asfr20_24,
+        asfr25_29,
+        asfr30_34,
+        asfr35_39,
+        asfr40_44,
+        asfr45_49
+    ))) %>%
+    mutate(country = name)
+```
+
+And we create a bar plot
+
+```{r}
+# create a plot
+fertplot <- ggplot() +
+    geom_bar(
+        data = swe_ita_fert_rate,
+        mapping = aes(
+            x = factor(year),
+            y = fertility_rate, 
+            fill = country
+        ), stat = "identity", position = "dodge2"
+    ) +
+    xlab("year") +
+    ylab("mean fertility rate (per 1000 population)") +
+    scale_fill_manual(values = c("grey20", "grey60")) +
+    theme(legend.position = "none")
+```
+
+Here we obtain the Human Mortality data of population for Italy and Sweden
+
+```{r}
+# 1x1 population
+# the helper function to read a country from HMD
+read_hmd_country <- function(CNTRY, item) {
+    HMDHFDplus::readHMDweb(
+        # the country from the function call
+        CNTRY = CNTRY,
+        # the item to download
+        item = item,
+        # the username from this key's record
+        username = keyring::key_list("human-mortality-database")$username,
+        # the password for this key's record
+        password = keyring::key_get(
+            service = "human-mortality-database",
+            username = keyring::key_list("human-mortality-database")$username
+        )
+    )
+}
+
+# Italy and Sweden population
+ita_swe_pop <- c("ITA", "SWE") %>%
+    # Returns a list of data.frames, adding a column for country code to each
+    # the map() function performs a run of Ben's read_hmd_country() function for each listed country
+    purrr::map_dfr(function(country) {
+        # the item to read is 1 x 1 death rates
+        read_hmd_country(country, "Population") %>%
+            # this adds the column "country" storing the country ISO code
+            dplyr::mutate(country = country)
+    }) %>%
+    tibble()
+```
+
+Because the population values are presented by one-year age classes for each available year, we aggregate across all age classes to obtain a single population number per year. Included in this is code for getting full country name based on the three-character ISO codes. Although this step could easily have been done manually since there were only two countries, using a data- and code-driven process would be a time saver and less prone to error for a data set that had many more country records.
+
+```{r}
+# aggregate per year
+ita_swe_pop_year <- ita_swe_pop %>%
+    filter(between(x = Year, left = 2000, right = 2018)) %>%
+    group_by(Year, country) %>%
+    summarise(population = sum(Total1), .groups = "drop") %>%
+    mutate(popscale = population / max(population, na.rm = TRUE) * max(swe_ita_fert_rate$fertility_rate, na.rm = TRUE))
+
+# country codes from the population data
+myISO <- ita_swe_pop_year %>%
+    distinct(country) %>%
+    pull()
+# country codes from countrycode package
+myCC <- codelist %>%
+    filter(iso3c %in% myISO) %>%
+    select(country = iso3c, country.name.en)
+# join to get full country name for ISO
+ita_swe_pop_year %<>% left_join(myCC, by = "country") %>%
+    select(-country) %>%
+    select(country = country.name.en, everything())
+```
+
+We create a graphic.
+
+```{r}
+popplot <- ggplot() +
+    geom_bar(data = ita_swe_pop_year, mapping = aes(x = factor(Year), y = population / 1e6, fill = country), stat = "identity", position = "dodge") +
+    xlab("year") +
+    ylab("population x 1M") +
+    scale_fill_manual(values = c("grey20", "grey60")) +
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
+```
+
+Finally, the two graphic objects are arranged and printed. `r figure_nums(name = "q1plot", display = "cite")` shows that Italy's fertility rate dropped between 2000 and 2021, while its population increased until the mid-2010s when it started decreasing. Sweden had a much lower population with seemingly less dramatic, albeit apparently monotonic increase. Many countries around the world have experienced decreases in fertility rates (see the age pyramids for India and China in [Lesson 3](../week3.html#idb-variables))
+
+```{r, message=FALSE, fig.width=10}
+# combine the plots#
+library(gridExtra)
+grid.arrange(fertplot, popplot, ncol = 2)
+```
+\    
+*`r figure_nums(name = "q1plot", caption = "Fertility and population rates for Italy and Sweden")`*
+
+# Q2. 
+**Download census tract data from the American Community Survey 5-year estimates for King County from 2013 and 2019. Examine median household income, comparing between “WHITE ALONE, NOT HISPANIC OR LATINO HOUSEHOLDER” and “BLACK OR AFRICAN AMERICAN ALONE HOUSEHOLDER” groups over time. Create a graphic that displays any changes. Provide your interpretation of any patterns you observe.**
+
+First, we start by finding the variables. We have downloaded the list of ACS 5 year variables for 2013 and 2019
+
+```{r}
+library(tidycensus)
+options(tigris_use_cache = TRUE)
+
+# variables for block groups for the two years, using "cache = TRUE" to speed rerunning
+v_bg_2013 <- load_variables(year = 2013, dataset = "acs5", cache = TRUE)
+v_bg_2019 <- load_variables(year = 2019, dataset = "acs5", cache = FALSE)
+```
+
+We filtered the list of variables using `str_detect()` using regular expressions on the `label` and `concept` columns in the variable metadata. The resultant variables are shown in `r table_nums(name = "v13", display = "cite")` and `r table_nums(name = "v19", display = "cite")`
+
+*`r table_nums(name = "v13", caption = "Selected ACS variables, 2013")`*
+
+```{r}
+# variables for median hh income
+m13 <- v_bg_2013 %>%
+    filter(str_detect(string = label, pattern = regex("median household income", ignore_case = TRUE))) %>%
+    filter(str_detect(string = concept, pattern = regex("afr|white al.*hisp", ignore_case = TRUE)))
+m13 %>% 
+    kable() %>% 
+    kable_styling(bootstrap_options = "striped", full_width = F, position = "left")
+```
+
+*`r table_nums(name = "v19", caption = "Selected ACS variables, 2019")`*
+
+```{r}
+m19 <- v_bg_2019 %>%
+    filter(str_detect(string = label, pattern = "Estimate!!Median household income")) %>%
+    filter(str_detect(string = concept, pattern = regex("afr|white al.*hisp", ignore_case = TRUE)))
+m19 %>% 
+    kable() %>% 
+    kable_styling(bootstrap_options = "striped", full_width = F, position = "left")
+```
+
+Now we download those data and add columns for year and $10,000 scaled income.
+
+```{r, message=FALSE}
+# variable names
+vars <- c(aframalone = "B19013B_001", whitealone = "B19013H_001")
+
+# download and use "mutate" to add year to data and scale income to 1k
+
+# 2013
+dat13 <- get_acs(
+    geography = "tract",
+    variables = vars,
+    year = 2013,
+    state = "WA",
+    county = "King",
+    output = "wide",
+    geometry = TRUE,
+    progress_bar = FALSE
+) %>%
+    mutate(
+        year = 2013,
+        afram = (aframaloneE / 1000) %>% round(1),
+        white = (whitealoneE / 1000) %>% round(1)
+    )
+
+
+# 2019
+dat19 <- get_acs(
+    geography = "tract",
+    variables = vars,
+    year = 2019,
+    state = "WA",
+    county = "King",
+    output = "wide",
+    geometry = TRUE,
+    progress_bar = FALSE
+) %>%
+    mutate(
+        year = 2019,
+        afram = (aframaloneE / 1000) %>% round(1),
+        white = (whitealoneE / 1000) %>% round(1)
+    )
+```
+
+Part of wrangling the data set into something that can be plotted without too much futzing around is to convert from "wide" to "long" format. Here we first bind the data frames together, with `bind_rows()`, which keeps the year identities that we added in the `mutate()` earlier. The we use `pivot_longer()` to create a `race` column (values `afram` and `white`) and `income 10k`. This gives us a table that will have a single record for each tract $\times$ race combination with the median household income for tract records that had values.
+
+```{r}
+# create a single data frame in long format
+dat <- bind_rows(dat13, dat19) %>%
+    pivot_longer(cols = c(afram, white), names_to = "race", values_to = "income 10k")
+```
+
+Now we graph the median household incomes using `ggplot()` with `geom_boxplot()` and faceting by race (`r `figure_nums(name = "incomeboxplot", display = "cite")`). Although median incomes increased for both African Americans and Whites over this interval, incomes for Whites was substantially larger, and it appears that Whites' incomes grew relatively more over the interval.
+
+```{r, warning=FALSE, message=FALSE}
+g <- ggplot(data = dat, mapping = aes(x = factor(year), y = `income 10k`)) +
+    geom_boxplot() +
+    stat_summary(fun.y = mean, geom = "point", shape = 1, size = 5, color = "black") +
+    xlab("year") +
+    ylab("income x $10k") +
+    facet_wrap(~race) 
+print(g)
+#ggsave(filename = "H:/junk/ggplot.png", plot = g)
+```
+\    
+*`r figure_nums(name = "incomeboxplot", caption = "Tract median household income for African American and White householders, 2013 and 2019")`*
+
+# Q3 
+**Using the same data as in question (2), create a “mapview” map with the four layers (2 years × 2 race/ethnicity) that allows the viewer to choose which layer to display. For a tutorial, see [Multiple layers in Mapview](https://r-spatial.github.io/mapview/articles/articles/mapview_02-advanced.html#multiple-layers).**
+
+Adding `sf` layers to `mapview` maps is very straightforward. Here each downloaded tract layer is shown with different `zcol` variables (i.e., the column to be choropleth mapped, median household income by year and race). The `layer.name` argument is used to set the title in the legend and the layer toggle selection. If I were to do this for a "production" map I would erase water features from the census tract polygons as shown in [Exercise 3](file:///H:/csde502-winter-2022-main/docs/week3.html#sf).
+
+```{r}
+library(mapview)
+mapview(dat13, zcol = "afram", layer.name = "median HH income $10k<br>African American<br>2013") +
+    mapview(dat13, zcol = "white", layer.name = "median HH income $10k<br>White<br>2013") +
+    mapview(dat19, zcol = "afram", layer.name = "median HH income $10k<br>African American<br>2019") +
+    mapview(dat19, zcol = "white", layer.name = "median HH income $10k<br>White<br>2019")
+```
+
+<hr>
+
+# Source code for this document
+```{r, comment='', echo=FALSE}
+cat(readLines("csde502_2022_assignment03_answers.Rmd"), sep = "\n")
+```

@@ -1,0 +1,327 @@
+---
+title: "tidycensus; IDB; mapping"
+author: '[Yohan Min](https://reconjohn.github.io/)'
+date: "`r Sys.Date()`"
+output:
+  bookdown::html_document2:
+    toc: yes
+    toc_float:
+      collapsed: no
+      smooth_scroll: no
+    toc_depth: 6
+    number_sections: yes
+    code_folding: hide
+    self_contained: yes
+  pdf_document:
+    latex_engine: xelatex
+    number_sections: yes
+    toc: yes
+    fig_cap: yes
+    keep_tex: yes
+always_allow_html: yes
+---
+
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(warning = FALSE, message = FALSE, error = F)
+
+# load several packages
+pacman::p_load(readr, magrittr, keyring, HMDHFDplus, animation, captioner, idbr, htmltools, kableExtra, knitr, leaflet, leafem, leafpop, magrittr, mapview, pander, pander, psych, readstata13, rmapshaper, sf, stargazer, tidyverse, tidycensus, tigris)
+
+
+# for captions and cross references
+table_nums <- captioner(prefix = "Table")
+figure_nums <- captioner(prefix = "Figure")
+```
+
+
+
+# Problem 
+Download data from the Human Mortality database or the Human Fertility database as well as the US Census International Data base for at least two countries and for at least two years. The years should be the same for each country. Create at least one graphic that combines variables from each data set. Explain any patterns that you see.
+
+```{r}
+
+
+# Set your password for Human Mortality Database (HMD)
+# does a key exist? if not, create one
+if (key_list(service = "human-mortality-database") %>% nrow() == 0) {
+  keyring::key_set(
+    service = "human-mortality-database",
+    username = "min25@uw.edu"
+  )
+  # Enter your HMD password in the prompt
+}
+
+
+# Function to download a specified HMD dataset item for a single county
+read_hmd_country <- function(CNTRY, item) {
+  HMDHFDplus::readHMDweb(
+    CNTRY = CNTRY,
+    item = item,
+    username = keyring::key_list("human-mortality-database")$username,
+    password = keyring::key_get(
+      service = "human-mortality-database",
+      username = keyring::key_list("human-mortality-database")$username
+    )
+  )
+}
+
+# Help function to list the available countries
+countries <- HMDHFDplus::getHMDcountries()
+
+# Download a dataset iteratively for all countries using purrr::map()
+# In this case, age-specific mortality in 1-year periods x 1-year age groups
+# for all 1-year periods available
+mx_1x1 <- countries %>%
+  # Returns a list of data.frames, adding a column for country code to each
+  purrr::map(function(country) {
+    read_hmd_country(country, "Mx_1x1") %>%
+      dplyr::mutate(country = country)
+  }) %>%
+  # Combines the data.frames into a single data.frame
+  dplyr::bind_rows()
+
+# mx_1x1 %>% 
+#   filter(country %in% c("KOR","JPN")) %>% 
+#   filter(Year %in% c(2003, 2018)) %>% 
+#   gather("gender", "value", Female, Male) %>% 
+#   ggplot(aes(x = Age, y = value, group = Year, color = gender)) +
+#   geom_line(size = 1)+
+#   facet_grid(Year~ country) + 
+#   labs(y = "Mortality between 2013, and 2018")+
+#   theme_bw()+
+#   theme(plot.title = element_text(hjust = 0.5, size = 20)) + 
+#   theme(axis.title=element_text(size=15),
+#         legend.title = element_text(size = 15),
+#         legend.text = element_text(size = 15),
+#         strip.text = element_text(size = 13))
+```
+
+```{r include= FALSE}
+
+mx_1x1 %>%
+    filter(country %in% c("KOR","JPN")) %>%
+  filter(Year %in% c(2003, 2018)) %>%
+  gather("gender", "value", Female, Male) %>%
+    mutate(value = ifelse(gender == "Male", value * -1, value)) %>%
+    # plot with Y as age, color by sex
+    ggplot(aes(x = value, y = as.factor(Age), fill = gender)) +
+    # column plot
+    geom_col(width = 1) +
+    # minimal theme with no background annotations
+    theme_minimal(base_size = 15) +
+    # scale X with labels in the millions
+    scale_x_continuous(labels = function(x) paste0(abs(x))) +
+    # scale Y with breaks & labels every 10 years
+    scale_y_discrete(breaks = scales::pretty_breaks(n = 10)) +
+    # define the colors
+    scale_fill_manual(values = c("red", "gold")) +
+    # set the labels
+    labs(
+        title = "Mortality rate of\nKorea and Japan, 2003 and 2018",
+        x = "Mortality rate",
+        y = "Age",
+        fill = ""
+    ) +
+    # facet by country and year
+    facet_grid(country ~ Year)
+
+```
+
+
+```{r include=FALSE}
+
+idb_api_key(Sys.getenv("CENSUS_API_KEY"))
+# variables5 %>% DT::datatable()
+
+
+# get data only if necessary
+if(!exists("kor_jap")){
+    kor_jap <- get_idb(
+        country = c("Korea", "Japan"),
+        year = c(2003, 2018),
+        # age range 0 to 100 years
+        age = 0:100,
+        # data for both sexes
+        sex = c("male", "female")
+    )
+}
+
+kor_jap %>%
+    # multiply male population by -1 to graph to the left of 0
+    mutate(pop = ifelse(sex == "Male", pop * -1, pop)) %>%
+    # plot with Y as age, color by sex
+    ggplot(aes(x = pop, y = as.factor(age), fill = sex)) +
+    # column plot
+    geom_col(width = 1) +
+    # minimal theme with no background annotations
+    theme_minimal(base_size = 15) +
+    # scale X with labels in the millions
+    scale_x_continuous(labels = function(x) paste0(abs(x / 1000000), "m")) +
+    # scale Y with breaks & labels every 10 years
+    scale_y_discrete(breaks = scales::pretty_breaks(n = 10)) +
+    # define the colors
+    scale_fill_manual(values = c("red", "gold")) +
+    # set the labels
+    labs(
+        title = "Population structure of\nKorea and Japan, 2003 and 2018",
+        x = "Population",
+        y = "Age",
+        fill = ""
+    ) +
+    # facet by country and year
+    facet_grid(name ~ year) +
+  theme(legend.position = c(0.87, 0.4))
+
+
+
+```
+
+
+```{r}
+
+mx_1x1 %>% 
+  filter(country %in% c("KOR","JPN")) %>% 
+  filter(Year %in% c(2003, 2018)) %>% 
+  gather("gender", "mortality", Female, Male) %>% 
+  left_join(kor_jap %>% 
+              mutate(code =  recode(code, "JP" = "JPN", "KR" = "KOR")), 
+            by = c("Year" = "year", "Age" = "age", "country" = "code", "gender" ="sex")) %>% 
+  mutate(pop_m = pop/1000000) %>% 
+  gather("feature", "Val", mortality, pop_m) %>% 
+  filter(gender == "Male") %>% 
+  ggplot(aes(x = Age, y = Val, color = country)) +
+  geom_line(size = 0.7)+
+  facet_grid(Year~ feature) + 
+  labs(y = "Population and Mortality between 2013, and 2018", 
+       color = "Population and Mortality")+
+  theme_bw()+
+  theme(plot.title = element_text(hjust = 0.5, size = 20)) + 
+  theme(axis.title=element_text(size=15),
+        legend.title = element_text(size = 15),
+        legend.text = element_text(size = 15),
+        strip.text = element_text(size = 13),
+        legend.position = c(0.72, 0.35))
+```
+
+
+_`r figure_nums(name = "gg1", caption = "Mortality and population (pop_m) in Japan, and Korea in 2003, and 2018")`_
+
+Comment: Korea has higher mortality at order age groups than Japan in both 2003 and 2018. However, the gap of mortality between the countries is getting smaller in 2018 while the order age groups still show higher mortality. Since mortality rates radically change after 75 year age group, the population structure changes are mostly from birth rate decreases. 
+
+
+# Problem 
+Download census block group data from the American Community Survey 5-year estimates for King County from 2013 and 2019. Examine median household income, comparing between “WHITE ALONE, NOT HISPANIC OR LATINO HOUSEHOLDER” and “BLACK OR AFRICAN AMERICAN ALONE HOUSEHOLDER” groups over time. Create a graphic that displays any changes. Provide your interpretation of any patterns you observe.
+
+```{r include=FALSE}
+
+# v2019 <- load_variables(year = 2019, dataset = "acs1", cache = TRUE)
+# v2019 %>% DT::datatable()
+# 
+# v2019 %>%
+#     filter(str_detect(concept, "MEDIAN HOUSEHOLD INCOME")) %>%
+#     kable() %>%
+#     kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), full_width = F, position = "left")
+
+
+years <- c(2013, 2019)
+
+# all_var_df <- bind_rows(lapply(years, function(x) {
+#   load_variables(x, "acs1", cache = TRUE) %>%
+#         mutate(YEAR = x)
+# }))
+
+# all_var_df %>%
+#     filter(name == "B19013B_001" | name == "B19013H_001")
+
+
+raw_inc_df <- bind_rows(lapply(years, function(x){
+    get_acs(
+        geography = "tract",
+        variables = c(Black = "B19013B_001", White ="B19013H_001"),
+        cache_table = F,
+        year = x,
+        state = "WA",
+        county = "King",
+        geometry = T
+        ) %>%
+    mutate(Year = x)}))
+```
+
+```{r}
+
+# inc_df <- raw_inc_df %>%
+#     mutate(
+#         inc_upr = estimate + moe,
+#         inc_lwr = estimate - moe)
+
+raw_inc_df %>%
+  filter(!is.na(estimate)) %>% 
+    ggplot(aes(x = Year, y = estimate, 
+               color = variable, group = GEOID)) +
+    geom_line(alpha = 0.6) +
+    geom_point() +
+    facet_wrap(~ variable) +
+    theme_classic() +
+    theme_minimal(base_size = 15) +
+    # scale X with labels in the millions
+    # scale Y with breaks & labels every 10 years
+    scale_y_continuous(breaks = scales::pretty_breaks(n = 5),
+                       labels = scales::dollar) +
+    ggtitle("Median Household Income King County") +
+    scale_fill_manual(values=c("#b7a57a", "#4b2e83", "#000000", "#DCDCDC")) +
+    scale_color_manual(values=c("#b7a57a", "#4b2e83", "#000000", "#DCDCDC")) 
+
+```
+
+_`r figure_nums(name = "ggplot", caption = "Median Household Income King County")`_
+
+Comment:  There are more variations in median household income changes from 20013 to 2019 for Black householder than White householder. In addition, everage median income is higher for White householder than Black householder for both years.  
+
+# Problem 
+Using the same data as in question (2), create a `mapview` map with the four layers (2 years × 2 race/ethnicity) that allows the viewer to choose which layer to display.
+
+```{r}
+
+raw_inc_df %<>% st_transform(4326)
+
+# mapview(raw_inc_df,
+#         zcol = "estimate",
+#         popup = popupTable(raw_inc_df,
+#             zcol = c("GEOID", "variable")
+#         )
+#     )
+
+
+income_2013 <- raw_inc_df %>% 
+          filter(Year == 2013)
+
+income_2019 <- raw_inc_df %>% 
+          filter(Year == 2019)
+
+White <- raw_inc_df %>% 
+          filter(variable == "White")
+
+Black <- raw_inc_df %>% 
+          filter(variable == "Black")
+
+mapview(income_2013,
+        zcol = "estimate") +
+    mapview(White,
+        zcol = "estimate") +
+  mapview(income_2019,
+        zcol = "estimate") +
+  mapview(Black,
+        zcol = "estimate")
+
+```
+
+_`r figure_nums(name = "mapview", caption = "Median Household Income King County by year 2013, and 2019, and race White, and Black")`_
+
+
+
+# Source code
+```{r comment=''}
+cat(readLines("csde502_2022_assignment03_Yohan.Rmd"), sep = '\n')
+```

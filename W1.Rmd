@@ -1,0 +1,110 @@
+---
+title: "File naming example"
+author: "[CSDE 502](https://csde-uw.github.io/csde502-winter-2022/)"
+date: '`r format(Sys.time(), "%Y-%m-%d %H:%M")`'
+header-includes: #allows you to add in your own Latex packages
+- \usepackage{float} #use the 'float' package
+- \floatplacement{figure}{H} #make every figure with caption = h
+output:
+    html_document:
+        number_sections: true
+        self_contained: true
+        code_folding: hide
+        toc: true
+        toc_float:
+            collapsed: true
+            smooth_scroll: false
+    pdf_document:
+        number_sections: true
+        toc: true
+        fig_cap: yes
+        keep_tex: yes
+urlcolor: blue
+---
+
+```{r setup, include=FALSE}
+pacman::p_load(knitr, kableExtra, tidyverse, magrittr)
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+The following code chunk creates a set of dummy files in a temporary folder, pausing for one second after each file is created (to affect the file modification time--so running this code will take longer than expected). It will open a file explorer on Windows and Mac computers and also display an interactive table allowing sorting by file name.
+
+```{r}
+# make a dummy directory
+dud_dir <- normalizePath(file.path(tempdir(), "delete_me_later"), winslash = "/")
+
+if(!dir.exists(dud_dir)){
+    dir.create(path = dud_dir)
+}
+
+# make a dummy a data frame to write to a file
+x <- data.frame(foo = "bar")
+
+# make some stupidly named files, Dec 16, 2021
+write.csv(x = x, file = file.path(dud_dir, "file 121621.csv"), quote = FALSE, row.names = FALSE); Sys.sleep(1)
+write.csv(x = x, file = file.path(dud_dir, "file 12_16_21.csv"), quote = FALSE, row.names = FALSE); Sys.sleep(1)
+write.csv(x = x, file = file.path(dud_dir, "file 12-16-21.csv"), quote = FALSE, row.names = FALSE); Sys.sleep(1)
+write.csv(x = x, file = file.path(dud_dir, "file 16-12-21.csv"), quote = FALSE, row.names = FALSE); Sys.sleep(1)
+write.csv(x = x, file = file.path(dud_dir, "file_121621.csv"), quote = FALSE, row.names = FALSE); Sys.sleep(1)
+
+# make some stupidly named files, Dec 17, 2021
+write.csv(x = x, file = file.path(dud_dir, "file 121721.csv"), quote = FALSE, row.names = FALSE); Sys.sleep(1)
+write.csv(x = x, file = file.path(dud_dir, "file 12_17_21.csv"), quote = FALSE, row.names = FALSE); Sys.sleep(1)
+write.csv(x = x, file = file.path(dud_dir, "file 12-17-21.csv"), quote = FALSE, row.names = FALSE); Sys.sleep(1)
+write.csv(x = x, file = file.path(dud_dir, "file 17-12-21.csv"), quote = FALSE, row.names = FALSE); Sys.sleep(1)
+write.csv(x = x, file = file.path(dud_dir, "file_121721.csv"), quote = FALSE, row.names = FALSE); Sys.sleep(1)
+
+# write two logically named files
+write.csv(x = x, file = file.path(dud_dir, "file_20211217.csv"), quote = FALSE, row.names = FALSE); Sys.sleep(1)
+write.csv(x = x, file = file.path(dud_dir, "file_20211216.csv"), quote = FALSE, row.names = FALSE); Sys.sleep(1)
+write.csv(x = x, file = file.path(dud_dir, "file_2021-12-17.csv"), quote = FALSE, row.names = FALSE); Sys.sleep(1)
+write.csv(x = x, file = file.path(dud_dir, "file_2021-12-16.csv"), quote = FALSE, row.names = FALSE); Sys.sleep(1)
+write.csv(x = x, file = file.path(dud_dir, "file_2021_12_17.csv"), quote = FALSE, row.names = FALSE); Sys.sleep(1)
+write.csv(x = x, file = file.path(dud_dir, "file_2021_12_16.csv"), quote = FALSE, row.names = FALSE); Sys.sleep(1)
+
+# get the OS
+get_os <- function(){
+  sysinf <- Sys.info()
+  if (!is.null(sysinf)){
+    os <- sysinf['sysname']
+    if (os == 'Darwin')
+      os <- "osx"
+  } else { ## mystery machine
+    os <- .Platform$OS.type
+    if (grepl("^darwin", R.version$os))
+      os <- "osx"
+    if (grepl("linux-gnu", R.version$os))
+      os <- "linux"
+  }
+  tolower(os)
+}
+os <- get_os()
+
+# open a file explorer
+if(os == "windows"){
+    shell.exec(dud_dir)
+}
+if(os == "osx"){
+    system2("open", dud_dir)
+}
+
+# get the list of files
+fnames <- tibble(
+    path = list.files(path = dud_dir,
+                     pattern = "*.csv", 
+                     full.names = TRUE)
+    )
+fnames %<>% 
+        mutate(fname = path %>% basename(),
+               mod_time = map_dfr(path, file.info)$mtime %>% as.character())
+
+# get the file creation dates
+
+
+# print with DT for sorting
+DT::datatable(fnames, options = list(pageLength = nrow(fnames)))
+```
+
+Which file is newer?
+
+You should be convinced that yyyymmdd is a better way to name files by date. Your reward will be to delete `r dud_dir`.

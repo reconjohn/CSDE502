@@ -1,0 +1,161 @@
+---
+title: "Week 01"
+author: "[Yohan Min](mailto:min25@uw.edu)"
+date: '`r format(Sys.time(), "%Y-%m-%d %H:%M")`'
+header-includes: #allows you to add in your own Latex packages
+- \usepackage{float} #use the 'float' package
+- \floatplacement{figure}{H} #make every figure with caption = h
+output: 
+    pdf_document:
+        number_sections: true
+        toc: true
+        fig_cap: yes
+        keep_tex: yes
+    html_document:
+        number_sections: true
+        self_contained: true
+        code_folding: hide
+        toc: true
+        toc_float:
+            collapsed: true
+            smooth_scroll: false
+urlcolor: blue        
+---
+
+<!--these following settings control width and also make a DIV tag for black outlines for figures-->
+<style type="text/css">
+.main-container {
+  max-width: 2400px !important;
+  margin-left: auto;
+  margin-right: auto;
+}
+</style>
+
+<style>
+.outline {
+   background-color: #000000;
+   padding:1px;
+   display: inline-block;
+}
+</style>
+
+
+```{r setup, message=FALSE}
+# key setups
+library(sqldf) # to use sql syntax with data frames
+library(knitr) # knitr for kable tables
+library(kableExtra) # pretty tables
+library(sf) # simple features (GIS)
+library(leaflet) # nice maps
+library(tools) # md5sum
+
+# captions
+library(captioner)
+table_nums <- captioner(prefix = "Table")
+figure_nums <- captioner(prefix = "Figure")
+
+# for having DIV tags
+knitr::knit_hooks$set(class = function(before, options, envir) {
+  if(before){
+    sprintf("<div class = '%s'>", options$class)
+  }else{
+    "</div>"
+  }
+})
+
+knitr::opts_chunk$set(warning = FALSE, message = FALSE)
+```
+
+<!-- for a wide presentation -->
+<style type="text/css">
+.main-container {
+  max-width: 2400px !important;
+  margin-left: auto;
+  margin-right: auto;
+}
+</style>
+
+<!-- a DIV for black outline, good for figures-->
+<style>
+.outline {
+   background-color: #000000;
+   padding:1px;
+   display: inline-block;
+}
+</style>
+
+# Introduction
+
+<!--This is a newline:
+
+\  
+
+(a backslash with 2 spaces)
+-->
+
+# Methods
+
+## Data
+
+## Analysis
+
+# Results
+
+## A table
+
+See `r table_nums(name = "tcap0", display = "cite")`
+
+_`r table_nums(name = "tcap0", caption = "My caption")`_
+
+```{r}
+irishead <- head(iris)
+kable(irishead, format = "html") %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), full_width = F, position = "left")
+``` 
+
+## A leaflet map
+
+See _`r figure_nums(name = "spaceneedle", display = "cite")`_ 
+
+```{r}
+# the Space Needle
+snxy <- data.frame(name = "Space Needle", x = -122.3493, y = 47.6205)
+space_needle <- st_as_sf(snxy, coords = c("x", "y"), crs = 4326)
+
+# a leaflet
+m <- leaflet() %>% 
+    addTiles() %>% 
+    addCircleMarkers(data = space_needle)
+m
+```
+\    
+_`r figure_nums(name = "spaceneedle", caption = "A simple leaflet map with the Space Needle as a markerpoint")`_
+
+## A figure with black outlines
+An image is shown below (`r figure_nums(name = "csdelogo", display = "cite")`).
+
+<div class = "outline">
+![](https://csde.washington.edu/wp-content/uploads/2016/08/csdelogo-110x110.png)
+</div>
+\      
+_`r figure_nums(name = "csdelogo", caption = "CSDE Logo")`_
+
+# Discussion
+
+pacman::p_load(readstata13)
+
+# read the dta file
+myurl = "https://csde-uw.github.io/csde502-winter-2022"
+
+dat <- readstata13::read.dta13(file.path(myurl, "data/AHwave1_v1.dta"))
+
+x <- data.frame(colname = names(dat), label = attributes(dat)$var.labels)
+DT::datatable(data = x, caption = "Column names and labels in AHwave1_v1.dta.")
+
+
+# Conclusions
+
+# Source code
+## This document
+```{r comment=''}
+cat(readLines("week_01.Rmd"), sep = '\n')
+```

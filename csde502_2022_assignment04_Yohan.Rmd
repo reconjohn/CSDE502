@@ -1,0 +1,144 @@
+---
+title: "Functions and sampling "
+author: '[Yohan Min](https://reconjohn.github.io/), min25@uw.edu'
+date: "`r Sys.Date()`"
+output:
+  bookdown::html_document2:
+    toc: yes
+    toc_float:
+      collapsed: no
+      smooth_scroll: no
+    toc_depth: 6
+    number_sections: yes
+    code_folding: hide
+    self_contained: yes
+always_allow_html: yes
+---
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(warning = FALSE, message = FALSE, error = F)
+
+options(tigris_use_cache = TRUE)
+pacman::p_load(demogR, demography, magrittr, knitr, kableExtra, readstata13, captioner,tigris, sf, tidyverse)
+
+table_nums <- captioner(prefix = "Table")
+figure_nums <- captioner(prefix = "Figure")
+```
+
+Regarding the `r figure_nums(name = "hist", display = "cite")`, all the answers are as follows. 
+
+
+```{r}
+
+gradpain <- c(rep(0,11), rep(1,1), rep(2,2), rep(3,6), rep(4,8), rep(5,10),
+rep(6,8), rep(7,30), rep(8,10), rep(9,6), rep(10,2))
+
+barplot(table(gradpain), las=1, ylab="Frequency", xlab="Pain Scale",
+main="How painful is graduate school?")
+
+
+```
+
+_`r figure_nums(name = "hist", caption = "Survey results on pain of graduate school")`_
+
+<br> 
+
+# How many graduate students are in the sample?
+
+```{r}
+
+# length(gradpain)
+s_num <- table(gradpain) %>% sum()
+
+```
+There are `r s_num` students in the sample. 
+
+<br>
+
+# What is the sample mean?
+
+```{r}
+
+s_mean <- mean(gradpain)
+
+
+```
+
+The mean is `r s_mean`. 
+
+```{r}
+
+
+s_fun <- function(d.vec, n){
+  result <- sample(x = d.vec, size = n, replace = TRUE)
+  list("size" = n, "mean" = mean(result))
+}
+  
+set.seed(7)
+
+fin <- c()
+for(i in 1:100){
+  result <- s_fun(gradpain, s_num)
+  fin <- c(fin, result$mean)
+}
+
+  
+```
+
+# What is the mean of these 100 means?
+
+The mean of the 100 means is `r round(mean(fin),2)`. 
+
+<br> 
+
+# What is the standard deviation of these 100 means?
+
+The standard deviation of these 100 means is `r round(sd(fin),2)`.
+
+```{r}
+
+ss_fun <- function(d.vec, n, num.samples){
+  fin <- c()
+  for(i in 1:num.samples){
+    result <- sample(x = d.vec, size = n, replace = TRUE)
+    fin <- c(fin, mean(result))
+  }
+  
+      list("size" = n, "total size" = n*num.samples, "means" = fin,  "mean" = mean(fin), "sd" = sd(fin), 
+         "95% CI" = quantile(fin, probs = c(0.25, 0.975)))
+}
+
+
+set.seed(7)
+
+ans <- ss_fun(d.vec = gradpain, n = length(gradpain), num.samples = 100)
+  
+
+```
+
+
+# What does your function return for the mean of means?
+
+The mean of means is `r round(ans$mean,2)`. 
+
+<br>
+
+# What does your function return for the standard deviation of means?
+
+The standard deviation of means is `r round(ans$sd,2)`.
+
+<br>
+
+# What does your function return for the 95% confidence interval around the mean?
+
+The 95% confidence interval around the mean is `r round(ans$'95% CI',2)` respectively. 
+
+<br>
+
+# Source code
+```{r comment=''}
+cat(readLines("csde502_2022_assignment04_Yohan.Rmd"), sep = '\n')
+```
+
+
