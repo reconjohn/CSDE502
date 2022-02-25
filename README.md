@@ -20,4 +20,4 @@ Hotspot analysis and geographically weighted regression (GWR) would be employed 
 * [Analysis Slides](https://github.com/reconjohn/residential/blob/master/syntax/test_files/social_equity_solar.pdf)
 
 # Discussions
-On going.. 
+On going...

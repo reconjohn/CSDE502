@@ -4,10 +4,10 @@ pacman::p_load(readr, tidyverse, magrittr, knitr, kableExtra, readstata13, starg
 
 key_list()
 
-keyring::key_list()
-keyring::key_delete(service = "human-fertility-database", username = "min25@uw.edu")
-keyring::key_delete(service = "human-fertility-database", username = "min25@uw.edu")
-keyring::key_set(service = "human-fertility-database", username = "min25@uw.edu")
+# keyring::key_list()
+# keyring::key_delete(service = "human-fertility-database", username = "min25@uw.edu")
+# keyring::key_delete(service = "human-fertility-database", username = "min25@uw.edu")
+# keyring::key_set(service = "human-fertility-database", username = "min25@uw.edu")
 
 library(ISOcodes)
 library(HMDHFDplus)
@@ -55,17 +55,14 @@ read_hfd_country <- function(CNTRY, item) {
     # the item to download
     item = item,
     # the username from this key's record
-    username = keyring::key_list("human-mortality-database")$username,
+    username = keyring::key_list("human-fertility-database")$username,
     # the password for this key's record
     password = keyring::key_get(
-      service = "human-mortality-database",
-      username = keyring::key_list("human-mortality-database")$username
+      service = "human-fertility-database",
+      username = keyring::key_list("human-fertility-database")$username
     )
   )
 }
-
-
-read_hfd_country("JPN", item = "totbirthsRR")
 
 
 # Download a data set iteratively for all named countries using purrr::map()
@@ -87,7 +84,7 @@ read_hfd_countries_item <- function(countries, item){
 }
 
 CNTRIES <- hfdcodes %>% 
-  filter(Name %in% c("United States", "Lithuania", "Japan")) %>% 
+  filter(Name %in% c("United States", "Denmark", "Austria")) %>% 
   pull(ccode)
 
 totbirthsRR_USA_LTU_JPN <- read_hfd_countries_item(countries = CNTRIES, item = "totbirthsRR")

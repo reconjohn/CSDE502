@@ -1,0 +1,84 @@
+<!--these following settings control width and also make a DIV tag for black outlines for figures-->
+<style type="text/css">
+.main-container {
+  max-width: 2400px !important;
+  margin-left: auto;
+  margin-right: auto;
+}
+</style>
+
+<style>
+.outline {
+   background-color: #000000;
+   padding:1px;
+   display: inline-block;
+}
+</style>
+
+
+```{r setup, message=FALSE}
+# key setups
+library(sqldf) # to use sql syntax with data frames
+library(knitr) # knitr for kable tables
+library(kableExtra) # pretty tables
+library(sf) # simple features (GIS)
+library(leaflet) # nice maps
+library(tools) # md5sum
+
+# captions
+library(captioner)
+table_nums <- captioner(prefix = "Table")
+figure_nums <- captioner(prefix = "Figure")
+
+# for having DIV tags
+knitr::knit_hooks$set(class = function(before, options, envir) {
+  if(before){
+    sprintf("<div class = '%s'>", options$class)
+  }else{
+    "</div>"
+  }
+})
+
+# chunk options
+knitr::opts_chunk$set(warning = FALSE, message = FALSE)
+
+# path to this file name
+if (!interactive()) {
+    fnamepath <- as.character(sys.call(1))[2]
+}
+```
+
+<!-- for a wide presentation -->
+<style type="text/css">
+.main-container {
+  max-width: 2400px !important;
+  margin-left: auto;
+  margin-right: auto;
+}
+</style>
+
+<!-- a DIV for black outline, good for figures-->
+<style>
+.outline {
+   background-color: #000000;
+   padding:1px;
+   display: inline-block;
+}
+</style>
+
+# Content
+
+
+# Source code
+File is at `r fnamepath`.
+
+## Source code for this document
+
+```{r ref.label=knitr::all_labels(), echo=TRUE, eval=FALSE}
+```
+
+## Complete Rmd code
+
+```{r comment=''}
+cat(readLines(fnamepath), sep = '\n')
+```

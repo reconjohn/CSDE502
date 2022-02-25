@@ -1,0 +1,314 @@
+---
+title: "Assignment 6"
+author: "Yohan Min"
+date: "`r Sys.Date()`"
+output:
+  bookdown::html_document2:
+    toc: true
+    toc_float:
+      collapsed: true
+      smooth_scroll: false
+    toc_depth: 6
+    self_contained: true
+    number_sections: true
+    code_folding: show
+---
+
+<!-- This is a CSS style sheet for the answers -->
+<style>
+h1 {
+  font-size: 22px;}
+  
+h2 {
+  font-size: 18px;}
+  
+h3 {
+  font-size: 18px;}
+
+p {
+  font-size: 16px;}
+
+.answer {
+  font-size: 18px;
+  background-color: lightblue;}  
+</style>
+
+```{r setup, include=FALSE}
+library(captioner)
+pacman::p_load(
+    tidyverse,
+    magrittr,
+    knitr,
+    kableExtra,
+    readstata13,
+    haven,
+    pdftools,
+    captioner,
+    dplyr, 
+    magrittr,
+    scales
+)
+
+## path to this file name
+if (!interactive()) {
+  fnamepath <- as.character(sys.call(1))[2]
+}
+
+# captions
+table_nums <- captioner(prefix = "Table")
+```
+
+# Explanation {.unnumbered}
+For this assignment, you will be perusing some of the documentation for the Add Health Wave 1 data set. You will use the documentation to make some updates to a data frame containing some of the Add Health data, and then save the data frame as an RDS file. You will update a metadata table that partially describes the data set and changes you made to the variable names and variable labels.
+
+To open a Stata version 13 file in R there are two main options:
+
+1. Use `haven::read_dta()`.  
+To access variable labels in R, use `labelled::foreign_to_labelled()`.   
+To update variable labels, use the `labelled::var_label()` function. 
+1. Use `readstata13::read.dta13()`.   
+Variable labels for this format are available, e.g., for a data frame named `dat` as `attributes(dat)$var.labels`.   
+This is a vector of text strings that can be updated by assigning a new value to the specified element, e.g., `attributes(dat)$var.labels[1] <- "foo"`. 
+
+To save the RDS file, use the base function `saveRDS()`.
+
+Here is a base R code snippet that will rename a single variable:
+
+```{md}
+colnames(data_frame)[grep("^original_variable_name$", colnames(data_frame))] <- new_variable_name
+```
+
+The `grep()` function finds the position of the named variable in the list of variables in the data frame. The characters `^` and `$` are regular expressions to specify the start and end of the string to be matched (assuring that the pattern does not match multiple similar variable names).
+
+It is much simpler with tidyverse and magrittr: 
+
+```{md}
+data_frame %<>% rename(new_variable_name = old_variable_name)
+```
+
+Additional hint for dealing with PDF documentation: 
+
+1. Use `pdfgrep` (should be available in a Linux or Mac package manager; for Windows use [https://pdfgrep.org/](https://pdfgrep.org/) or use [Cygwin](https://cygwin.com/packages/summary/pdfgrep.html).
+1. Use the R `pdftools` package. This could be used in a loop over each PDF file to create a data frame with the name of the PDF file, page number, and text of each page. The `str_match()` function could be used to identify the file name and page number where specific text strings occur. For a minimal example, this shows that the string "h1gi1m" is found on page 1 of INH01PUB.PDF. Conversion of the PDF file’s text to lowercase simplifies the matching, as in this example:
+
+```
+> x <- pdftools::pdf_text(pdf = "INH01PUB.PDF")
+> str_match(string = x %>% str_to_lower(), pattern = "h1gi1m")
+      [,1]    
+ [1,] "h1gi1m"
+ [2,] NA      
+ [3,] NA      
+ [4,] NA      
+ [5,] NA      
+ [6,] NA      
+ [7,] NA      
+ [8,] NA      
+ [9,] NA      
+[10,] NA      
+[11,] NA      
+[12,] NA      
+[13,] NA      
+[14,] NA      
+[15,] NA
+```
+
+# Instructions {.unnumbered}
+
+1. Download and make changes to [this Rmd file](https://canvas.uw.edu/courses/1515226/files/87787809/download) (the same one that generated the HTML file you are reading). Make sure you include your name and any optional link in the `author` field in the YAML header.
+1. Keep the <tt>`<div> ... </div>`</tt> tags so that your answers will show up in the blue blocks.
+1. Any answers that rely on R or other code should be documented explicitly, e.g., in R code chunks in the Rmd, or with inline code (e.g., `` `r "\u0060r mean(x)\u0060"` ``).
+1. Render your Rmd file to HTML format.
+1. Convert your completed Rmd file to PDF format (do not render as PDF, just print the raw text of the Rmd file as PDF).
+1. Upload the HTML and PDF files to the [course Canvas site](https://canvas.uw.edu/courses/1515226).
+
+# Question 1
+Explore the Add Health website (http://www.cpc.unc.edu/projects/addhealth) and answer the following questions (making sure to cite as necessary):
+
+## 
+What was the sampling frame for this study?
+
+<div class="answer">
+It is stratified sampling. In particular, nationally-representative longitudinal survey of adolescents of students in grades 7-12. So far it has taken 5 waves with a series of in-home interviews conducted in 1995, 1996, 2001-02, 2008, and 2016-18. 
+</div>
+
+##
+What were the three kinds of respondents at Wave I?
+
+<div class="answer">
+Households for in-home interview, students from schools, and neighborhoods 
+</div>
+
+## 
+What was the instrument with the largest sample size?
+
+<div class="answer">
+Answer
+</div>
+
+## 
+Is it possible for a respondent to be in Wave III without being in Wave II?
+
+<div class="answer">
+Yes it is possible. 
+</div>
+
+## 
+What is the time span (start and end dates) of the Add Health data collection (all waves)?
+
+<div class="answer">
+1995, 1996, 2001-02, 2008, and 2016-18. 
+</div>
+
+## 
+What is the difference between the public and the restricted-use Add Health data?
+
+<div class="answer">
+The restricted-use data requires researchers to have an IRB-approval letter. 
+</div>
+
+## 
+Describe a research question that you might be able to answer using the Add Health dataset. 
+
+<div class="answer">
+Any research questions associated with health condition changes over the years. 
+</div>
+
+
+# Question 2 
+Download and unzip the [Add Health public-use documentation (codebooks)](https://canvas.uw.edu/courses/1515226/files/folder/Add%20Health%20public%20use%20data#). Answer the following questions:
+
+## 
+In what pdf document is the documentation for the race items for the Wave I In-Home questionnaire?
+
+<div class="answer">
+
+```{r}
+
+if(file.exists("data/add_health_wave1_codebooks") & !file.exists("data/AHwave1_v1.dta")){
+    unzip(zipfile = "data/AHwave1_v1.dta.zip", exdir = "data")
+}
+
+
+
+```
+
+
+</div>
+
+## 
+How many respondents were of Hispanic/Latino origin in Wave 1?
+
+<div class="answer">
+Answer
+</div>
+
+## 
+What is the "Knowledge Quiz" in the Wave I In-Home questionnaire?
+
+<div class="answer">
+Answer
+</div>
+
+## 
+What is the unique identifier for the In-home data? 
+
+<div class="answer">
+Answer
+</div>
+
+
+# Question 3
+Download the file [AHwave1_v1.dta](https://canvas.uw.edu/files/87730694/download?download_frd=1).
+
+## 
+Fill in the grey missing cells in `r table_nums(name = "t1", display = "cite")` below based on the data and/or documentation. Optimally, use the documentation to familiarize yourself with the structure of the code books.
+
+<div class="answer">
+```{r}
+
+# unzip the file
+if(file.exists("data/AHwave1_v1.dta.zip") & !file.exists("data/AHwave1_v1.dta")){
+    unzip(zipfile = "data/AHwave1_v1.dta.zip", exdir = "data")
+}
+
+# read the data
+AHwave1_v1_haven <- haven::read_dta(file = "data/AHwave1_v1.dta") %>% 
+  dplyr::select(aid, imonth, iday,iyear,bio_sex,h1gi1m, h1gi1y, h1gi4,h1gi6a,h1gi6b,h1gi6c,h1gi6d,h1gi6e,h1gi8,h1gi9,h1gh1)
+
+
+
+AHwave1_v1_haven_metadata <- bind_cols(
+    # variable name
+    `new variable name` = c("aid","imonth","iday","iyear","bio_sex","bmonth","byear","hispanic","white","black","AI","asian","raceother","onerace",
+    "observedrace","health"),
+
+    `original variable name` = colnames(AHwave1_v1_haven),
+    `status*` = c(rep("unchanged", 5), rep("renamed", 11)),
+    `data type` = c("text", rep("renamed", 15)),
+    `new variable label` = lapply(AHwave1_v1_haven, function(x) attributes(x)$label) %>% 
+        unlist(),
+    `codebook file name` = c(rep("SECTAPUB.PDF", 4), rep("INH01PUB.PDF", 12))
+
+
+
+)
+
+DT::datatable(AHwave1_v1_haven_metadata)
+
+
+```
+</div>
+
+## 
+Using questions 6 and 8 in `INH01PUB.PDF`, create a new variable named "race" that uses recoded values (white = 1; black/African American = 2; American Indian = 3; Asian/Pacific Islander = 4; other = 5; unknown/missing = 9). 
+
+<div class="answer">
+Answer
+</div>
+
+## 
+Rename the variables, and update variable labels using `r table_nums(name = "t1", display = "cite")` as a guide and save the data frame as the file as `AHwave1_v2.RDS`. To make these changes and to save the RDS file, include R code as a code chunk in this document.
+
+<div class="answer">
+
+
+```{r}
+saveRDS(AHwave1_v1_haven_metadata, file = "data/AHwave1_v2.RDS")
+
+```
+
+</div>
+
+## 
+Update the status in `r table_nums(name = "t1", display = "cite")` as needed. 
+
+A [Word document is available for editing](https://canvas.uw.edu/files/87787650/download?download_frd=1). Make changes to the document and then paste in a screen capture of the edited table. *Note: although this is not a preferred, reproducible, code-driven method, sometimes we do need to compromise our principles for the sake of expediency. It is rather complicated to create tables in R Markdown output with column and/or row spanning.*
+
+<div class="answer">
+![](data/Capture.png)
+</div>
+
+\  
+\  
+<hr>
+
+`r table_nums(name = "t1", caption = "Codebook for variables from Add Health Wave 1 data")`
+
+
+
+<hr>
+
+# Source code for this document
+File is on `r Sys.info()["nodename"]` at `r fnamepath`.
+
+R code in the document:
+
+```{r, ref.label=knitr::all_labels(),echo=TRUE,eval=FALSE}
+```
+
+Complete Rmd:
+
+```{r, comment='', echo=FALSE}
+fname <- knitr::current_input()
+cat(readLines(fname), sep = "\n")
+```

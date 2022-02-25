@@ -1,0 +1,271 @@
+---
+title: "Assignment 4 Answers, [CSDE 502 Winter 2022](https://csde-uw.github.io/csde502-winter-2022/)"
+author: "[Phil Hurvitz](http://gis.washington.edu/phurvitz)"
+date: "`r Sys.Date()`"
+output:
+  bookdown::html_document2:
+    toc: true
+    toc_float:
+      collapsed: false
+      smooth_scroll: false
+    toc_depth: 6
+    self_contained: true
+    number_sections: true
+    code_folding: hide
+    
+---
+
+<style>
+.box2 {
+    margin: auto;  
+    padding: 10px;
+    background-color: #E9E8E8;
+    box-shadow:0px 0px 0px 2px black inset;
+    margin-bottom:10px;
+    margin-left: 50px;
+    margin-right: 50px;
+}
+</style>
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(ggplot2)
+library(captioner)
+library(broom)
+library(knitr)
+library(kableExtra)
+library(HMDHFDplus)
+library(keyring)
+library(magrittr)
+library(scales)
+
+knitr::opts_chunk$set(echo = TRUE)
+
+# captions
+figure_nums <- captioner(prefix = "Figure")
+table_nums <- captioner(prefix = "Table")
+box_nums <- captioner(prefix = "Box")
+
+# path to this file name
+if (!interactive()) {
+  fnamepath <- as.character(sys.call(1))[2]
+}
+```
+<div class="box2">
+`r figure_nums(name = "q1a", display = "cite")` shows simulated data for a hypothetical study asking graduate students to rate graduate school on a pain scale from zero to 10, where zero is no pain and 10 is the worst pain imaginable. You are going to resample from this data and look at the distribution of the mean.
+
+
+```{r, echo=FALSE}
+gradpain <- c(rep(0,11), rep(1,1), rep(2,2), rep(3,6), rep(4,8), rep(5,10),
+              rep(6,8), rep(7,30), rep(8,10), rep(9,6), rep(10,2))
+
+barplot(table(gradpain), las=1, ylab="Frequency", xlab="Pain Scale",
+        main="How painful is graduate school?")
+```
+\    
+`r figure_nums(name = "q1a", caption = "Survey results on pain of graduate school")`
+
+Create the data using the following R statement:
+
+```{md}
+gradpain <- c(rep(0,11), rep(1,1), rep(2,2), rep(3,6), rep(4,8), rep(5,10),
+              rep(6,8), rep(7,30), rep(8,10), rep(9,6), rep(10,2))
+```
+
+FYI: The plot was created with the following R statement:
+
+```{md}
+barplot(table(gradpain), las=1, ylab="Frequency", xlab="Pain Scale",
+        main="How painful is graduate school?")
+```
+
+</div>
+    
+*Answer the following questions. Make sure you demonstrate that you are using R code to generate the answers.*
+
+# Question 1
+*How many graduate students are in the sample? *
+
+```{r}
+n_students <- length(gradpain)
+```
+**There were `r n_students` students in the sample.**
+
+# Question 2
+*What is the sample mean?*
+
+```{r}
+mean_pain <- mean(gradpain)
+```
+
+**The mean self-reported pain was `r mean_pain` on a scale of 0-10.**
+\    
+\        
+
+<div class="box2">
+`r box_nums("1")`
+
+Create a function, with these arguments:
+
+1. the vector of data: `d.vec`
+1. the size of the sample: `n`
+
+The function will sample with replacement a sample of size `n` from the vector `d.vec`.
+   
+The function will return a list that contains named elements representing:
+
+1. the size of the sample
+1. the mean of the sample
+</div>
+
+<div class="box2">
+`r box_nums("2")`
+
+Use `set.seed(7)` then run your function passing in the `gradpain` vector calculated above and a sample size of length(gradpain). Use a loop to do this 100 times and store all 100 returned means.
+</div>
+
+```{r}
+f_samp_with_repl <- function(d.vec, n){
+    # sample with replacement
+    x <- sample(x = d.vec, size = n, replace = TRUE)
+    m <- mean(x)
+    
+    # create an output list
+    list(sample_size = n,
+         sample_mean = m)
+}
+
+# create an meta-list
+S <- list()
+
+# set the randomization seed
+set.seed(7)
+
+# run this 100 times using a for() loop
+for(i in 1:100){
+    # run the function and add it to the list
+    S[[i]] <- f_samp_with_repl(d.vec = gradpain, n = length(gradpain))
+}
+
+# get the mean of each run
+# lapply() is used to get the second element of each list L in meta-list S
+# unlist() converts it to a vector
+myMeans <- lapply(X = S, FUN = function(x) x[2]) %>% unlist()
+```
+
+# Question 3
+```{r}
+# mean of means
+M <- lapply(X = S, FUN = function(x) x[2]) %>% unlist()
+```
+
+*What is the mean of these 100 means?*
+
+**The mean of these 100 means was `r round(mean(M), 2)`.**
+
+# Question 4
+
+*What is the standard deviation of these 100 means?*
+
+**The standard deviation of these means was `r round(sd(M), 2)`.**
+
+<div class="box2">
+`r box_nums("3")`
+
+Write another function that performs the steps listed in Box 2. That should be a function with these arguments:
+
+1. the vector of data: `d.vec`
+1. the size of the sample: `n`
+1. the number of samples: `num.samples`
+
+The function should sample with replacement a sample of size `n` from the vector `d.vec` and does this `num.samples` times.
+
+The function should return a list that contains named elements representing:
+
+1. the size of each sample
+1. the total number of samples
+1. a vector of length num.samples with the mean of each sample
+1. the mean of the means
+1. the standard deviation of the means
+1. the 95% confidence interval around the mean
+
+Use `set.seed(7)` again so that your results are reproducible. Then run your function with the three arguments 
+
+`d.vec = gradpain, n = length(gradpain), num.samples = 100`
+</div>
+
+```{r}
+f_samp_with_repl_bootstrap <- function(d.vec = gradpain, n = length(gradpain), num.samples = 100) {
+    ### d.vec is a vector to be sampled from
+    ### n is an integer, the sample size
+    ### the function samples WITH replacement a sample of size "n"
+    ###     from the vector "d.vec" repeatedly, num.samples times
+    ### the function returns a list that contains 
+    ###     $sample.size, the size of the samples
+    ###     $num.samples, the number of samples
+    ###     $sample.means, a vector of length num.samples containing the mean of each sample
+    ###     $mean.means, the mean of the sample.means
+    ###     $sd.means, the standard deviation of the sample.means
+    ###     $ci95.means
+    
+    # initialize a vector to hold results
+    x <- NULL
+    
+    # iterate over the number of samples
+    for (i in 1:num.samples) {
+        # run a single sample
+        mySample <- sample(x = d.vec, size = n, replace = TRUE)
+        # combine the sample's mean with the running set
+        x <- c(x, mean(mySample))
+    }
+    
+    # returns a list
+    return(
+        list(
+            sample.size = n, 
+            num.samples = num.samples, 
+            sample.means = x,
+            mean.means = mean(x),
+            sd.means = sd(x),
+            ci95.means = Rmisc::CI(x = x, ci = 0.95)
+        )
+    )
+}
+
+# run this over gradpain with n = length(gradpain) and number of samples = 100 using set.seed(7)
+set.seed(7)
+res <- f_samp_with_repl_bootstrap(d.vec = gradpain,
+                        n = length(gradpain),
+                        num.samples = 100)
+
+# CI parts
+cilow <- res$ci95.means["lower"] %>% round(2)
+cihigh <- res$ci95.means["upper"] %>% round(2)
+```
+
+	
+# Question 5	
+*What does your function return for the mean of means?*
+
+**The mean of means is `r res$mean.means %>% round(2)`**.
+
+# Question 6
+*What does your function return for the standard deviation of means?*
+
+**The standard deviation of means is `r res$sd.means %>% round(2)`.**
+
+# Question 7
+*What does your function return for the 95% confidence interval around the mean?*
+
+**The  95% confidence interval for the means was [`r cilow`, `r cihigh`].**
+
+
+
+<hr>
+
+# Source code for this document
+File is at `r fnamepath`.
+
+```{r, ref.label=knitr::all_labels(),echo=TRUE,eval=FALSE}
+```
+

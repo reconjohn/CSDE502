@@ -1,0 +1,227 @@
+---
+title: "Introduction to Add Health"
+author: 'Yohan Min, min25@uw.edu'
+date: "`r Sys.Date()`"
+output:
+  bookdown::html_document2:
+    toc: yes
+    toc_float:
+      collapsed: no
+      smooth_scroll: no
+    toc_depth: 6
+    number_sections: yes
+    self_contained: yes
+always_allow_html: yes
+---
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(warning = FALSE, message = FALSE, error = F)
+
+options(tigris_use_cache = TRUE)
+pacman::p_load(demogR, demography, magrittr, knitr, kableExtra, readstata13, captioner,tigris, sf, tidyverse)
+
+table_nums <- captioner(prefix = "Table")
+figure_nums <- captioner(prefix = "Figure")
+```
+
+
+
+## Generate a new data frame from the full public Add Health data set (http://staff.washington.edu/phurvitz/csde502_winter_2021/data/21600-0001-Data.dta.zip) that consists of a subset of at least four of the original columns. Do not use any of the variables used as examples in Lesson 7.
+
+
+```{r}
+
+
+# download and unzip the larger data set
+myUrl <- "http://staff.washington.edu/phurvitz/csde502_winter_2021/data/21600-0001-Data.dta.zip"
+mytempdir <- tempdir()
+
+# zip file in $temp -- basename gets just the file name from the URL and not the URL path;
+#   file.path stitches the tempdir() path to the file name
+zipfile <- file.path(mytempdir, basename(myUrl))
+
+# dta file in $temp
+dtafile <- tools::file_path_sans_ext(zipfile)
+
+# check if the dta file exists
+if (!file.exists(dtafile)) {
+    # if the dta file doesn't exist, check for the zip file
+    # check if the zip file exists, download if necessary
+    if (!file.exists(zipfile)) {
+        curl::curl_download(url = myUrl, destfile = zipfile)
+    }
+    # unzip the downloaded zip file
+    if (file.exists(zipfile)) {
+        unzip(zipfile = zipfile, exdir = mytempdir)
+    }
+}
+
+# if the data set has not been read, read it in
+if (!exists("ahcomplete")) {
+    data <- haven::read_dta(dtafile)
+}
+# lowercase column names
+colnames(data) %<>% str_to_lower()
+
+data <- data[,c("h1gi15","h1gi1m", "h1gi1y", "h1gi16y")]
+
+# data %>%
+#   attributes()
+# 
+# data %>% purrr::map(function(x) attributes(x))
+
+
+new_data <- data.frame("married" = factor(data$h1gi15, labels = data$h1gi15 %>% 
+                                                 attributes() %>% extract2("labels") %>%
+                                                 names(),ordered = TRUE),
+                       "birth_year" = factor(data$h1gi1y, labels = data$h1gi1y %>% 
+                                               attributes() %>% extract2("labels") %>%
+                                               names(),ordered = TRUE),
+                       "birth_month" = factor(data$h1gi1m, labels = data$h1gi1m %>% 
+                                                attributes() %>% extract2("labels") %>%
+                                                names(),ordered = TRUE),
+                       "married_year" = factor(data$h1gi16y, labels = data$h1gi16y %>% 
+                                                 attributes() %>% extract2("labels") %>%
+                                                 names(),ordered = TRUE))
+
+```
+
+
+## The code should save the data frame as an RDS file in a temporary folder, which can be specified in R as tempdir().
+
+
+```{r}
+
+saveRDS(object = new_data, file = file.path(mytempdir, "data.RDS"))
+
+```
+
+
+
+## Create some frequency tables:
+
+### Create a frequency table from each variable, using both counts and percentages.
+
+_`r table_nums(name = "fr", caption = "Married frequency tables of counts and percentages")`_
+
+```{r}
+
+  
+  new_data %>%
+    group_by(married) %>%
+    summarise(n = n(), .groups = "drop") %>% 
+    mutate(percent = n/ sum(n)) %>%
+    kable() %>%
+    kable_styling(
+      full_width = FALSE,
+      position = "left",
+      bootstrap_options = c("striped", "hover", "condensed", "responsive"))
+
+```
+
+_`r table_nums(name = "fr3", caption = "Birth year frequency tables of counts and percentages")`_
+
+```{r}
+  
+  
+    new_data %>%
+    group_by(birth_year) %>%
+    summarise(n = n(), .groups = "drop") %>% 
+    mutate(percent = n/ sum(n)) %>%
+    kable() %>%
+    kable_styling(
+      full_width = FALSE,
+      position = "left",
+      bootstrap_options = c("striped", "hover", "condensed", "responsive"))
+```
+
+_`r table_nums(name = "fr4", caption = "Birth month frequency tables of counts and percentages")`_
+
+```{r}
+    
+    
+      new_data %>%
+    group_by(birth_month) %>%
+    summarise(n = n(), .groups = "drop") %>% 
+    mutate(percent = n/ sum(n)) %>%
+    kable() %>%
+    kable_styling(
+      full_width = FALSE,
+      position = "left",
+      bootstrap_options = c("striped", "hover", "condensed", "responsive"))
+```
+
+_`r table_nums(name = "fr5", caption = "Married year frequency tables of counts and percentages")`_
+
+```{r}
+      
+      
+        new_data %>%
+    group_by(married_year) %>%
+    summarise(n = n(), .groups = "drop") %>% 
+    mutate(percent = n/ sum(n)) %>%
+    kable() %>%
+    kable_styling(
+      full_width = FALSE,
+      position = "left",
+      bootstrap_options = c("striped", "hover", "condensed", "responsive"))
+  
+
+
+
+```
+
+
+
+### Create a frequency table based on at least two variables, also with counts and percentages.
+
+_`r table_nums(name = "fr1", caption = "Two Variables frequency tables of counts and percentages")`_
+
+```{r}
+
+tb <- new_data %>%
+  group_by(birth_year, married_year) %>%
+  summarise(n = n(), .groups = "drop") %>% 
+  mutate(percent = n/ sum(n)) 
+
+
+tb %>%
+  kable() %>%
+  kable_styling(
+    full_width = FALSE,
+    position = "left",
+    bootstrap_options = c("striped", "hover", "condensed", "responsive"))
+
+```
+
+
+
+## Create at least one graph from data in the data frame.
+
+
+```{r}
+
+
+ggplot(data = tb, aes(x = birth_year, y = n, fill = married_year)) +
+  geom_bar(stat = "identity") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
+  facet_grid(~married_year) +
+  labs(x = "Birth year", y = "Number of respondents")
+
+
+```
+
+
+_`r figure_nums(name = "hist", caption = "Number of respondents by birth year and marred year")`_
+
+<br> 
+
+
+
+# Source code
+```{r comment=''}
+cat(readLines("csde502_2022_assignment07_Yohan.Rmd"), sep = '\n')
+```
+
+
