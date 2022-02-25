@@ -11,6 +11,8 @@ output:
     toc_depth: 6
     number_sections: yes
     self_contained: yes
+    code_folding: hide
+    
 always_allow_html: yes
 ---
 
@@ -23,6 +25,11 @@ pacman::p_load(demogR, demography, magrittr, knitr, kableExtra, readstata13, cap
 
 table_nums <- captioner(prefix = "Table")
 figure_nums <- captioner(prefix = "Figure")
+
+# path to this file name
+if (!interactive()) {
+  fnamepath <- as.character(sys.call(1))[2]
+}
 ```
 
 
@@ -219,9 +226,20 @@ _`r figure_nums(name = "hist", caption = "Number of respondents by birth year an
 
 
 
+
 # Source code
+
+File is at `r fnamepath`.
+
+```{r, ref.label=knitr::all_labels(),echo=TRUE,eval=FALSE}
+```
+
+
 ```{r comment=''}
 cat(readLines("csde502_2022_assignment07_Yohan.Rmd"), sep = '\n')
 ```
+
+
+
 
 
