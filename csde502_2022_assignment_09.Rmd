@@ -1,0 +1,347 @@
+---
+title: "CSDE 502 Winter 2021, Assignment 9"
+author: "1767428"
+output: 
+    bookdown::html_document2:
+        number_sections: true
+        self_contained: true
+        code_folding: hide
+        toc: true
+        toc_float:
+            collapsed: true
+            smooth_scroll: false
+    pdf_document:
+        number_sections: true
+        toc: true
+        fig_cap: yes
+        keep_tex: yes
+urlcolor: blue 
+---
+
+<!-- This is a CSS style sheet for the answers -->
+<style>
+h1 {
+  font-size: 22px;}
+  
+h2 {
+  font-size: 18px;}
+  
+h3 {
+  font-size: 18px;}
+
+p {
+  font-size: 16px;}
+
+.answer {
+  font-size: 18px;
+  background-color: lightblue;
+  border: 2px solid red;
+  border-radius: 12px;
+  padding: 5px;  
+  } 
+  
+.indent {
+  background-color: lightblue;
+  padding-left: 50px;
+  
+  } 
+}
+</style>
+
+```{r}
+pacman::p_load(
+  tidyverse,
+  magrittr,
+  knitr,
+  kableExtra,
+  readstata13,
+  haven,
+  pdftools,
+  curl,
+  ggplot2,
+  captioner
+)
+
+figure_nums <- captioner(prefix = "Figure")
+table_nums <- captioner(prefix = "Table")
+
+# path to this file name
+if (!interactive()) {
+    fnamepath <- knitr::current_input(dir = TRUE)
+} else {
+    fnamepath <- ""
+}
+```
+
+***Explanation***:
+This assignment is intended to give you more practice delving into the Add Health data set and in manipulating additional variables. 
+
+***Instructions***: 
+
+1. Make sure your Rmd file has no local file system dependencies (i.e., anyone should be able to recreate the output HTML using only the Rmd source file).
+1. Make a copy of this Rmd file and add answers below each question. The code that generated the answers should be included, as well as the complete source code for the document.\    
+Put your answers within the **$\lt$div class="answer"$\gt$...$\lt$/div$\gt$** tags so they will show up within the blue boxes with red borders.
+1. Change the YAML header above to identify yourself and include contact information.
+1. For any tables or figures, include captions and cross-references and any other document automation methods as necessary.
+1. Make sure your output HTML file looks appealing to the reader.
+1. Upload the final Rmd to your github repository.
+1. Download [`assn_id.txt`](http://staff.washington.edu/phurvitz/csde502_winter_2021/assignments/assn_id.txt) and include the URL to your Rmd file on github.com.
+1. Create a zip file from your copy of `assn_id.txt` and upload the zip file to the Canvas site for Assignment 1. ***The zip file should contain only the text file. Do not include any additional files in the zip file--everything should be able to run from the file you uploaded to github.com. Please use zip format and not 7z or any other compression/archive format.***
+
+
+#
+**Using the full household roster (you'll need to go back the full raw data source, [21600-0001-Data.dta](http://staff.washington.edu/phurvitz/csde502_winter_2021/data/21600-0001-Data.dta.zip)), create the following variables for each respondent. Document any decisions that you make regarding missing values, definitions, etc. in your narrative as well as in the R code.  Include a frequency tabulation and a histogram of each result.**
+
+
+
+
+<div class="answer">
+```{r}
+
+# download and unzip the larger data set
+myUrl <- "http://staff.washington.edu/phurvitz/csde502_winter_2021/data/21600-0001-Data.dta.zip"
+mytempdir <- tempdir()
+
+# zip file in $temp -- basename gets just the file name from the URL and not the URL path;
+#   file.path stitches the tempdir() path to the file name
+zipfile <- file.path(mytempdir, basename(myUrl))
+
+# dta file in $temp
+dtafile <- tools::file_path_sans_ext(zipfile)
+
+# check if the dta file exists
+if (!file.exists(dtafile)) {
+    # if the dta file doesn't exist, check for the zip file
+    # check if the zip file exists, download if necessary
+    if (!file.exists(zipfile)) {
+        curl::curl_download(url = myUrl, destfile = zipfile)
+    }
+    # unzip the downloaded zip file
+    if (file.exists(zipfile)) {
+        unzip(zipfile = zipfile, exdir = mytempdir)
+    }
+}
+
+# if the data set has not been read, read it in
+if (!exists("ahcomplete")) {
+    data <- haven::read_dta(dtafile)
+}
+
+
+```
+</div>
+
+##
+**Total number in household**
+
+
+<div class="answer">
+
+_`r table_nums(name = "table1", caption = "Total number in household")`_
+
+```{r}
+
+hh <- data %>% 
+  map(~ attributes(.)$label) %>% 
+  unlist() %>% 
+  str_detect(regex("household", ignore_case = TRUE)) 
+
+
+
+# data[hh] %>%
+#     map(~ attributes(.)$label)
+
+
+# data[hh]$S27 %>% 
+#   attributes %>% 
+#   extract2("labels")
+
+house_num <- data[hh]$S27[data[hh]$S27 < 7][!is.na(data[hh]$S27[data[hh]$S27 < 7])]
+
+
+table(house_num) %>% 
+  kable() %>%
+  kable_styling(full_width = FALSE, position = "left", 
+                bootstrap_options = c("striped", "hover", "condensed", "responsive"))
+```
+
+
+
+```{r}
+
+hist(house_num)
+
+  
+```
+
+_`r figure_nums(name = "hist1", caption = "Total number in household")`_
+
+</div>
+
+##
+**Number of sisters**
+
+<div class="answer">
+
+_`r table_nums(name = "table2", caption = "Number of sisters")`_
+```{r}
+
+temp <- data %>% 
+  dplyr::select(matches("H1HR3.*")) == 8 
+
+
+sis <- temp %>% 
+  as.data.frame() %>% 
+  rowSums() 
+
+
+sis %>% 
+  table() %>% 
+  kable() %>%
+  kable_styling(full_width = FALSE, position = "left", 
+                bootstrap_options = c("striped", "hover", "condensed", "responsive"))
+  
+```
+
+
+```{r}
+
+hist(sis)
+
+
+```
+
+_`r figure_nums(name = "hist2", caption = "Number of sisters")`_
+
+
+</div>
+
+##
+**Number of brothers**
+
+<div class="answer">
+
+_`r table_nums(name = "table3", caption = "Number of brothers")`_
+
+```{r}
+
+temp <- data %>% 
+  dplyr::select(matches("H1HR3.*")) == 5 
+
+
+bro <- temp %>% 
+  as.data.frame() %>% 
+  rowSums() 
+
+
+bro %>% 
+  table() %>% 
+  kable() %>%
+  kable_styling(full_width = FALSE, position = "left", 
+                bootstrap_options = c("striped", "hover", "condensed", "responsive"))
+```
+
+
+```{r}
+  
+
+hist(bro)
+
+```
+
+
+_`r figure_nums(name = "hist3", caption = "Number of brothers")`_
+
+
+</div>
+
+
+##
+**Total number of siblings**
+
+<div class="answer">
+
+_`r table_nums(name = "table4", caption = "Total number of siblings")`_
+
+```{r}
+
+temp_s <- data %>% 
+  dplyr::select(matches("H1HR3.*")) == 8
+
+
+
+temp_b <- data %>% 
+  dplyr::select(matches("H1HR3.*")) == 5 
+
+
+sib <- temp_s + temp_b
+
+
+
+sib <- sib %>% 
+  as.data.frame() %>% 
+  rowSums() 
+
+
+sib %>% 
+  table() %>% 
+  kable() %>%
+  kable_styling(full_width = FALSE, position = "left", 
+                bootstrap_options = c("striped", "hover", "condensed", "responsive"))
+
+```
+
+
+```{r}
+  
+
+hist(sib)
+
+```
+
+_`r figure_nums(name = "hist4", caption = "Total number of siblings")`_
+
+
+</div>
+
+#
+**What proportion of students live with two biological parents? Include the analysis in your R code.**
+
+<div class="answer">
+
+```{r}
+
+
+pro <- sum(data$S26 == 1, na.rm = T)/ (sum(data$S26 == 1, na.rm = T) + sum(data$S26 == 0, na.rm = T)) 
+
+
+```
+The proportion of students live with two biological parents is `r round(pro,2)`. 
+
+
+</div>
+
+#
+**Calculate the number of household members that are NOT biological mother, biological father, full brother or full sister. Create a contingency table and histogram for this variable.**
+
+<div class="answer">
+
+
+
+
+</div>
+
+<hr>
+Rendered at <tt>`r Sys.time()`</tt>
+
+## Source code
+File is at `r fnamepath`.
+
+### R code used in this document
+```{r ref.label=knitr::all_labels(), echo=TRUE, eval=FALSE}
+```
+
+### Complete Rmd code
+```{r comment=''}
+cat(readLines(fnamepath), sep = '\n')
+```
