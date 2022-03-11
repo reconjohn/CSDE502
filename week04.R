@@ -1,6 +1,8 @@
 
 
 
+# Function
+
 # if (!interactive()) {
 #   fnamepath <- as.character(sys.call(1))[2]
 # }
@@ -9,6 +11,7 @@
 
 
 pacman::p_load(demogR, demography, magrittr, knitr, kableExtra, readstata13, captioner,tigris, sf, tidyverse)
+
 
 f_compare <- function(x, y){
   # either missing?
@@ -182,7 +185,7 @@ system.time(
 
 
 
-
+############################################################################### purrr::map_dfr()
 # the tigris download function for counties
 f_county <- function(state_name, year = 2019){
   # this downloads a single county
@@ -211,6 +214,63 @@ st_write(obj = all_counties, dsn = file.path(myTmpDir, "counties.gpkg"), layer =
 
 
 
+# Help function to list the available countries
+# this generates a vector of all country abbreviations
+countries <- HMDHFDplus::getHMDcountries()[1:2]
+
+# Function to download a specified HMD data set item for a single county
+# the country code is referenced as "CNTRY"
+# the "item" is the base name of the link with ".txt" removed. For example,
+# https://www.mortality.org/hmd/ISR/STATS/Mx_1x1.txt
+#                                         Mx_1x1       <<- this is the item for 1 year x 1 year death rates
+read_hmd_country <- function(CNTRY, item) {
+  HMDHFDplus::readHMDweb(
+    # the country from the function call
+    CNTRY = CNTRY,
+    # the item to download
+    item = item,
+    # the username from this key's record
+    username = keyring::key_list("human-mortality-database")$username,
+    # the password for this key's record
+    password = keyring::key_get(
+      service = "human-mortality-database",
+      username = keyring::key_list("human-mortality-database")$username
+    )
+  )
+}
+
+# Help function to list the available countries
+# this generates a vector of all country abbreviations
+# for speed in class we will use only two countries
+countries <- HMDHFDplus::getHMDcountries()[1:2]
+
+# Download a data set iteratively for all countries using purrr::map()
+# In this case, age-specific mortality in 1-year periods x 1-year age groups
+# for all 1-year periods available
+# output is a data frame named "mx_1x1"
+mx_1x1 <- countries %>%
+  # Returns a list of data.frames, adding a column for country code to each
+  # the map() function performs a run of Ben's read_hmd_country() function for each listed country
+  purrr::map_dfr(function(country) {
+    # the item to read is 1 x 1 death rates
+    read_hmd_country(CNTRY = country, item = "Mx_1x1") %>%
+      # this adds the column "country" storing the country ISO code
+      dplyr::mutate(country = country)
+  }) %>%
+  # Phil added this to make it a tibble
+  tibble()
+
+
+tmx <- mx_1x1 %>% 
+  group_by(Year, country) %>% 
+  dplyr::summarise(mortality = sum(Total, na.rm = TRUE), .groups = "keep")
+
+tmx %>% ggplot(mapping = aes(x = Year, y = mortality)) +
+  geom_line() +
+  facet_grid(country ~ .) + 
+  xlab("year")
+
+
 
 mtcars %>%
   split(.$cyl) %>%
@@ -222,6 +282,7 @@ mtcars %>%
 tempdir()
 getwd()
 
+############################################################################### sampling 
 
 # create the population
 # 1 indicates female and 0 indicates male
@@ -253,11 +314,13 @@ plot(density(F), main = "")
 abline(v = ci_95, col=c(2,1,2))
 
 
-
+############################################################################### demo data
 # load the Goodman data from the demogR package
 data(goodman)
 
 ## default type="kf", Venezuela data
+# nKx: mid-year population structure
+# nDx: enumerated deaths
 vlt <- with(goodman, life.table(x=age, nKx=ven.nKx, nDx=ven.nDx))
 
 ## US life table
@@ -292,6 +355,21 @@ ggplot(data = lt, mapping = aes(x = x, y = lx, col = country))+
   geom_line() +
   xlab("age") +
   ylab("probability of surviving to age on X axis")
+
+
+attributes(fr.mort)
+fr.mort$age
+fr.mort$year
+fr.mort$pop %>% names()
+fr.mort$pop$total[1:5, 1:5]
+
+# min and max years
+y0 <- min(fr.mort$year)
+y1 <- max(fr.mort$year)
+
+# make the life table and plot life expectancy graph
+france.lt <- lifetable(fr.mort)
+plot(france.lt)
 
 
 france.lt <- lifetable(fr.mort)

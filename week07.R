@@ -17,10 +17,13 @@ pacman::p_load(
 if (!exists("data/AHwave1_v1_haven")) {
   AHwave1_v1_haven <- haven::read_dta("http://staff.washington.edu/phurvitz/csde502_winter_2021/data/AHwave1_v1.dta")
 }
+
+# labels is the specific levels while label is the meta data description
 attributes(AHwave1_v1_haven$h1gi1m)$labels %>%
   t() %>%
   t()
 
+############################################################################### csv vs. rds difference 
 # temp dir
 mytempdir <- tempdir()
 
@@ -33,7 +36,7 @@ is(AHwave1_v1_haven_csv)
 
 AHwave1_v1_haven_csv %>%
   attributes() %>%
-  map(~ head(.))
+  map(~ head(.)) # map function 
 
 AHwave1_v1_haven_csv$h1gi1m %>%
   attributes()
@@ -48,7 +51,7 @@ AHwave1_v1_haven_rds %>%
 AHwave1_v1_haven_rds$h1gi1m %>%
   attributes()
 
-## 
+############################################################################### Creating factor variables
 AHwave1_v1_haven$h1gh1 %>%
   attributes()
 
@@ -71,7 +74,7 @@ AHwave1_v1_haven$health <- factor(AHwave1_v1_haven$h1gh1,
                                   labels = health_levels,
                                   ordered = TRUE
 ) %>%
-  fct_relevel(rev)
+  fct_re # reverse factor 
 
 AHwave1_v1_haven$health %>% 
   levels() %>% 
@@ -148,7 +151,7 @@ dat_wb1 %>%
 
 
 dat_wb2 <- AHwave1_v1_haven %>%
-  filter(str_detect(obsrace, regex("white|black", ignore_case = TRUE)))
+  filter(str_detect(obsrace, regex("white|black", ignore_case = TRUE))) # string detect 
 
 dat_wb2 %>%
   group_by(obsrace) %>%
@@ -185,6 +188,7 @@ z <- readRDS(file = file.path(mytempdir, "foo.Rds"))
 head(z$health)
 
 
+############################################################################### Creating attributes
 y <- read.csv(file.path(mytempdir, "foo.csv"))
 
 y %>%
@@ -240,6 +244,8 @@ y$obsrace %>% attributes()
 head(y$obsrace)
 
 
+############################################################################### tabulation 
+
 # download and unzip the larger data set
 myUrl <- "http://staff.washington.edu/phurvitz/csde502_winter_2021/data/21600-0001-Data.dta.zip"
 
@@ -271,10 +277,20 @@ if (!exists("ahcomplete")) {
 colnames(ahcomplete) %<>% str_to_lower()
 
 
-attributes(ahcomplete$h1gh59a)$labels
+# create a data frame of the variable names and labels
+ahcomplete_metadata <- bind_cols(
+  varname = colnames(ahcomplete),
+  varlabel = ahcomplete %>% map(~ attributes(.)$label) %>% unlist()
+)
 
+# print the table with DT::datatable for interactive display
+DT::datatable(ahcomplete_metadata)
+
+
+attributes(ahcomplete$h1gh59a)$labels
 attributes(ahcomplete$h1gh59b)$labels
 attributes(ahcomplete$h1gh60)$labels
+
 
 
 # make the data frame
@@ -330,11 +346,13 @@ htwt %<>%
     )
   )
 
+############################################################################### Making categorical variable 
 # get the 5th & 85th percentile
 bmibreaks <- quantile(x = htwt$BMI, probs = c(0.05, 0.85))
 ggplot(htwt, aes(x = BMI)) +
   geom_histogram(bins = 30) +
   geom_vline(xintercept = bmibreaks)
+
 
 htwt %<>%
   mutate(bmiclass = cut(
@@ -345,17 +363,12 @@ htwt %<>%
   ) %>%
     factor(ordered = TRUE))
 
+
+############################################################################### Making a table 
+
 # base R
 table(htwt$bmiclass, useNA = "ifany")
 
-
-# tidyR
-htwt %>%
-  group_by(bmiclass) %>%
-  summarise(n = n()) %>%
-  kable() %>%
-  kable_styling(full_width = FALSE, position = "left", 
-                bootstrap_options = c("striped", "hover", "condensed", "responsive"))
 
 # tidyR
 htwt %>%
@@ -396,7 +409,9 @@ htwt %>%
     obsrace,
     bmiclass
   ) %>%
-  summarise(n = n(), .groups = "drop_last") %>%
+  summarise(n = n(), .groups = "drop_last") %>% 
+  # be careful with "drop_last" allowing proportional value per group
+  # if you want to ungroup, use "drop" 
   mutate(`%` = n / sum(n) * 100) %>%
   mutate(`%` = `%` %>% round(1)) %>%
   kable() %>%
@@ -415,8 +430,10 @@ htwt %>%
     summarise(n = n(), .groups = "drop_last") %>% 
     group_by(obsrace) %>% 
     summarise(n = n()) %>% 
-    deframe())
+    deframe()) # remove dataframe
 
+
+# super row creation 
 htwt %>%
   group_by(
     obsrace,
@@ -430,7 +447,7 @@ htwt %>%
     full_width = FALSE, position = "left",
     bootstrap_options = c("striped", "hover", "condensed", "responsive")
   ) %>% 
-  pack_rows(index = obsrace)    
+  pack_rows(index = obsrace) 
 
 
 htwt %>%
@@ -446,19 +463,6 @@ htwt %>%
                 bootstrap_options = c("striped", "hover", "condensed", "responsive")
   )
 
-
-htwt %>%
-  group_by(
-    bmiclass,
-    obsrace
-  ) %>%
-  summarise(n = n(), .groups = "drop_last") %>%
-  mutate(`%` = n / sum(n) * 100) %>%
-  mutate(`%` = `%` %>% round(1)) %>%
-  kable() %>%
-  kable_styling(full_width = FALSE, position = "left",
-                bootstrap_options = c("striped", "hover", "condensed", "responsive")
-  )
 
 
 bmi_race <- htwt %>%

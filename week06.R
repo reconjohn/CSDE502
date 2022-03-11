@@ -27,6 +27,7 @@ demCore::thailand_data$population %>%
     full_width = F, position = "left"
   )
 
+############################################################################### create population projection using CCMPP
 is(thailand_initial_estimates)
 names(demCore::thailand_initial_estimates)
 lapply(demCore::thailand_initial_estimates, FUN = function(x) (is(x)))
@@ -63,6 +64,7 @@ thailand_population <- ccmpp(
 )
 
 
+############################################################################### creating a factor from two variables
 thailand_population %<>%
   mutate(ageclass = factor(str_c(age_start, age_end, sep = " to ") %>%
                              fct_reorder(., age_start)))
@@ -89,7 +91,7 @@ ggplot(data = thailand_population,
   geom_line() +
   # this stratifies the graph by sex and age class
   facet_grid(ageclass ~ sex, scales = "free_y", # remove spaces 
-             labeller = labeller(age = thailand_population$age_class)) +
+             labeller = labeller(age = thailand_population$ageclass)) +
   # do not use a constant Y scale otherwise the older age classes would look flat.
   # and show the Y axis values with commas
   scale_y_continuous(labels = label_number(big.mark = ",")) +
@@ -98,13 +100,14 @@ ggplot(data = thailand_population,
   ylab("Population")
 
 
+############################################################################### health data cleaning 
 
 # unzip the file
 if(file.exists("data/AHwave1_v1.dta.zip") & !file.exists("data/AHwave1_v1.dta")){
   unzip(zipfile = "data/AHwave1_v1.dta.zip", exdir = "data")
 }
 
-# read the data
+## read the data by haven
 AHwave1_v1_haven <- haven::read_dta(file = "data/AHwave1_v1.dta")
 
 str(AHwave1_v1_haven$imonth)
@@ -134,9 +137,8 @@ AHwave1_v1_haven_metadata <- bind_cols(
 DT::datatable(AHwave1_v1_haven_metadata)
 
 
-# read the data
+## read the data by readstata13
 AHwave1_v1_rs13 <- readstata13::read.dta13(file = "data/AHwave1_v1.dta")
-
 
 # read the data
 AHwave1_v1_rs13 <- readstata13::read.dta13(file = "data/AHwave1_v1.dta", generate.factors = TRUE, nonint.factors = TRUE)

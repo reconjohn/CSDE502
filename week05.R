@@ -12,6 +12,7 @@ key_list()
 library(ISOcodes)
 library(HMDHFDplus)
 
+############################################################################### matching the country names 
 # HFD country codes
 hfdcodes <- getHFDcountries() %>% tibble(ccode = .)
 
@@ -47,6 +48,7 @@ hfdcodes %>%
                 full_width = F, position = "left")
 
 
+############################################################################### data download
 # a function to read HFD for one country and one item
 read_hfd_country <- function(CNTRY, item) {
   HMDHFDplus::readHFDweb(
