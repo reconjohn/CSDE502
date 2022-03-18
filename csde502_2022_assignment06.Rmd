@@ -12,6 +12,7 @@ output:
     self_contained: true
     number_sections: true
     code_folding: show
+    
 ---
 
 <!-- This is a CSS style sheet for the answers -->

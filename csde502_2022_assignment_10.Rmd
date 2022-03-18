@@ -1,0 +1,396 @@
+---
+title: "Exploratory data analysis"
+author: "Yohan Min"
+date: "March 18, 2022"
+output: html_document
+---
+
+# Education and Renewable Energy
+
+```{r setup, include=FALSE, fig.align="center"}
+knitr::opts_chunk$set(echo = F, message = F, warning = F)
+library(readr)
+library(ggplot2)
+library(magrittr)
+library(dplyr)
+library(ggpubr)
+library(geojsonio)
+library(rmapshaper)
+library(RColorBrewer)
+library(ggspatial)
+library(leaflet)
+library(sjPlot)
+library(margins)
+```
+
+## Hypothesis
+
+Countries that have higher scores on the Education Index install higher proportions of renewable energy, such as solar power.
+
+## Data Sources
+
+* Education Index by 2015 Country Data, released in the 2016 Human Development Report. Available at: https://en.wikipedia.org/wiki/Education_Index.
+
+* List of Countries by Renewable Electricity Production. Available at: https://en.wikipedia.org/wiki/List_of_countries_by_renewable_electricity_production.
+
+
+```{r}
+url="https://github.com/reconjohn/evans/raw/master/Data.csv"
+data<-read_csv(url(url))
+```
+
+```{r include=FALSE}
+names(data)
+```
+
+
+```{r include=FALSE}
+str(data)
+```
+
+
+```{r include=FALSE}
+summary(data)
+```
+
+## Data Visualization 
+
+### UNIVARIATE 
+
+There are two variables we are interested in: Education Index and Solar Generation. Each variable was plotted. 
+
+```{r}
+sourceText='Sources: Human Development Index 2016;
+Wikipedia-List of Countries by Renewable Electricity Production'
+
+solar = ggplot(data=data %>% 
+           filter(SolarGWh < 201), aes(x=SolarGWh))+ theme_classic() +
+    stat_density(geom = "line", color = "red")+
+        labs(title="Solar Generation, below 200GWh",
+         x = NULL, 
+         y = NULL)
+
+
+education = ggplot(data=data, aes(x=EducationIndex))+ theme_classic() +
+    stat_density(geom = "line", color = "blue")+
+        labs(title="Education Index",
+         x = NULL, 
+         y = NULL,
+         caption = sourceText)
+
+ggarrange(solar, education)
+    
+```
+
+### BIVARIATE 
+
+#### Solar Generation - Education Index
+
+Both variables were plotted to see the relationship. It is found that only if the Education Index is higher than 0.8, the suggested hypothesis that countries that have higher scores on the Education Index install higher proportions of renewable energy, such as solar power, seems right. 
+
+
+```{r}
+
+titleText='Solar Gigawatt Hours by Education Index'
+
+ggplot(data=data, aes(x=EducationIndex, y=SolarGWh))+
+    geom_point(aes(color=Continent))+
+    geom_smooth()+
+    theme_classic()+
+    labs(title=titleText,
+         x = NULL, 
+         y = NULL,
+         caption = sourceText) +
+    theme(plot.title = element_text(hjust = 0.5))+
+    theme(axis.text.x = element_text(size=14)) +
+    theme(axis.text.y = element_text(size=14)) 
+```
+
+<br> 
+
+#### Education Index Rank - Continent (Bar plot)
+
+Furthermore, Education Index Rank was plotted per continent using bar and radar plots. 
+
+```{r include=FALSE}
+ord=c("less30", "30-60", "60-90", "90-120", "above120")
+
+data$CategoricalEIRank=cut(data$EIRank,
+                  breaks = c(0,30,60,90,120,190),
+                  labels = ord)
+
+# contingency table of counts
+(ContinentEI=table(data$Continent,data$CategoricalEIRank))
+```
+
+```{r include=FALSE}
+# computing marginal percent (per column) from contigency table
+(ContEI_mgCol=prop.table(ContinentEI,
+                            margin = 2))
+```
+
+
+```{r include=FALSE}
+#making a data frame from contingency table
+
+ContEIDF=as.data.frame(ContinentEI)
+names(ContEIDF)=c("continent","EIrank","counts")
+
+#adding marginal percents:
+ContEIDF$pctCol=as.data.frame(ContEI_mgCol)[,3]
+
+# head of data frame representing contingency table and marginals
+head(ContEIDF)
+```
+
+```{r include=FALSE}
+str(ContEIDF)
+```
+
+```{r}
+ord=c("less30","30-60","60-90","90-120","above120")
+ContEIDF$EIrank = factor(ContEIDF$EIrank, levels = ord)
+```
+
+
+```{r}
+
+titleText='Education Index Rank by Continent'
+colorForScale='YlGnBu'
+
+base1=ggplot(data=ContEIDF, 
+             aes(x=continent,y=counts,fill=EIrank)) + # VARS NEEDED
+    theme_classic() 
+
+barDodge= base1 +  geom_bar(stat="identity",
+                            position="dodge") + # NOT a default
+    labs(title=titleText,
+         x = NULL, 
+         y = NULL,
+         caption = sourceText) +
+    theme(plot.title = element_text(hjust = 0.5)) +
+    scale_fill_grey()
+
+barDodge= barDodge + geom_text(position = position_dodge(width = 0.9),
+                               angle=90,
+                               hjust=0.1,
+                               aes(label=counts)) 
+barDodge 
+```
+
+<br> 
+
+#### Education Index Rank - Continent (Radar plot)
+
+```{r}
+base  = ggplot(ContEIDF, aes(x = EIrank, y = counts, group = continent))
+
+plot1 = base + geom_polygon(fill = 'gray',col='orange') + coord_polar() +
+        labs(title=titleText,
+         x = NULL, 
+         y = NULL,
+         caption = sourceText) +
+    theme(plot.title = element_text(hjust = 0.5))
+
+plot2 = plot1 + facet_wrap(~reorder(continent,counts, median, order=TRUE),ncol = 3)
+
+plot3 = plot2 + theme(axis.text.x = element_text(size = 8),
+                legend.position="none",
+                strip.text = element_text(size = 15)) 
+plot3 
+
+```
+
+### Mapping 
+
+Solar Energy Proportion and Education Index were mapped. 
+
+```{r include = F}
+fromGit="https://github.com/reconjohn/evans/raw/master/world_map.json"
+
+PROJmap="+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0"
+wazipMap=topojson_read(fromGit,crs=PROJmap,stringsAsFactors = FALSE)
+
+wazipMap$NAME[c(84,175,96,107,205,18)] =c("Iran","Russian Federation","South Korea",
+                                       "Libya","Tanzania","Myanmar")
+
+```
+
+#### Background Map
+
+```{r}
+ggplot(data=wazipMap) + geom_sf()
+
+```
+
+```{r include= F}
+names(wazipMap)
+
+```
+
+
+```{r}
+layerContrib=merge(wazipMap, #map first
+                   data, 
+                   by.x='NAME', # common column
+                   by.y='Country', # common column
+                   all.x=T) # reduced map.
+
+# View(layerContrib)
+
+baseMap <- ms_dissolve(wazipMap)
+```
+
+#### Solar Energy Portion (%)
+```{r}
+numberOfClasses = 5
+colorForScale='YlGnBu'
+
+layerContrib$cut=cut_number(layerContrib$SolarPct,numberOfClasses,
+                            ordered_result=T,
+                            dig.lab=5)
+
+baseLayer=ggplot(data = baseMap) +geom_sf() 
+layer1 = baseLayer + geom_sf(data = layerContrib, aes(fill=cut),color=NA,show.legend = T) +
+                 scale_fill_brewer(palette = colorForScale,
+                                   name = "Solar Energy Proportion (%)")
+layer1  + annotation_scale(location = "br", 
+                                     width_hint = 0.1,
+                                     plot_unit = 'mi',
+                                     unit_category='imperial',
+                                     style='ticks'
+                                     ) +
+    annotation_north_arrow(location = "bl", style = north_arrow_minimal,
+                           height = unit(0.3, "in")) 
+
+```
+
+#### Education Index (Interactive map)
+```{r}
+
+paletteFun=colorQuantile(colorForScale,domain = NULL,
+                         n = numberOfClasses)
+
+textFun="function(btn, map){map.setView([47.751076, -120.740135], 7)}"
+
+# the base map
+baseLayer = leaflet() %>%addProviderTiles("CartoDB.Positron") 
+final1 = baseLayer %>%
+         addPolygons(data=layerContrib,
+                     weight = 0, #thickness of border
+                     opacity =  1, # # the closer to 0 the more transparent
+                     fillOpacity = 0.7, # color brigthness
+                     fillColor = ~paletteFun(EducationIndex)) # coloring
+
+final1 %>% 
+    addLegend(data=layerContrib,
+                    "bottomright",
+                    pal = paletteFun, 
+                    values = ~EducationIndex,
+                    title = "Education Index",
+                    opacity = 1) %>% 
+        addEasyButton(
+        easyButton(icon="fa-home", # a symbol
+                   title="Zoom to Level 1",
+                   onClick=JS(textFun)))
+
+
+```
+
+
+## Regression 
+
+### Hypothesis
+
+**Countries that have higher scores on the Education Index install higher proportions of solar power.**
+
+Finally, to find the relationship between Education Index and Solar generation, two regression models were performed: Gaussian and binomial regressions with a control variable, Continent. 
+
+<br> 
+
+> Gaussian Regression:
+> ** Solar ~ Total RE + Education Index + Continent ** 
+
+```{r}
+
+hypo1=formula(SolarGWh~ TotalREGWh + EducationIndex + Continent)
+regre1=glm(hypo1,data = data,family = 'gaussian')
+```
+
+```{r include= F}
+summary(regre1)
+```
+
+```{r}
+titleText='Estimated Solar Gigawatt Hours'
+
+plot_models(regre1,vline.color = "grey")+
+    theme_classic() +
+    labs(title=titleText,
+         x = NULL, 
+         y = NULL,
+         caption = sourceText) +
+    theme(plot.title = element_text(hjust = 0.5)) +
+    theme(axis.text.y = element_text(size=12)) 
+```
+
+<br> 
+
+> Logistic Regression:
+> Solar (0,1) ~ Total RE + Education Index + Continent
+
+
+```{r}
+
+data$Energyco=ifelse(data$SolarGWh>
+                          median(data$SolarGWh),
+                      1,0)
+
+hypo2=formula(Energyco~ TotalREGWh + EducationIndex + Continent)
+regre2=glm(hypo2,data = data,family = "binomial")
+```
+
+```{r include= F}
+summary(regre2)
+```
+
+
+```{r}
+model = margins(regre2)
+margins=summary(model)
+
+titleText='Average Marginal Effect'
+   
+base= ggplot(margins,aes(x=factor, y=AME)) + geom_point()
+plot2 = base + 
+    theme_classic() + 
+    coord_flip() + 
+    theme(axis.text.x = element_text(angle = 80,
+                                     size = 6,
+                                     hjust = 1)) +
+    labs(title=titleText,
+         x = NULL, 
+         y = NULL,
+         caption = sourceText) +
+    theme(plot.title = element_text(hjust = 0.5))
+
+plot2 + geom_errorbar(aes(ymin=lower, ymax=upper)) + 
+    geom_hline(yintercept = 0,
+             linetype="dashed",
+             size=0.3,
+             alpha=0.5) +
+    theme(axis.text.x = element_text(size=14,angle = 45)) 
+```
+
+Data shows counties with higher Education Index are mostly in Europe while with lower Education Index are in Africa. Furthermore, the analyses found that the Education Index is correlated to solar generation meaning countries with higher Education Index are more likely to have higher solar generation. There was not much difference between Gaussian and binomial regression models for the result. 
+
+
+
+
+
+
+
+
+
+
+
